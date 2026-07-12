@@ -15,7 +15,6 @@ use crate::{
 
 pub enum InputMode {
     Normal,
-    Editing,
 }
 
 pub struct App {
@@ -67,14 +66,31 @@ pub fn run_app<B: Backend>(
                             KeyCode::Char('j') | KeyCode::Down => app.entries_list.next(),
                             KeyCode::Char('k') | KeyCode::Up => app.entries_list.previous(),
                             KeyCode::Char('n') => {
+                                crossterm::terminal::disable_raw_mode()?;
+                                crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen, crossterm::event::DisableMouseCapture)?;
+                                terminal.show_cursor()?;
+
                                 create_new_entry(app)?;
+
+                                crossterm::terminal::enable_raw_mode()?;
+                                crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
+                                terminal.clear()?;
                                 refresh_entries(app)?;
                             }
                             KeyCode::Enter => {
                                 if let Some(selected) = app.entries_list.state.selected() {
                                     if !app.entries_list.items.is_empty() {
                                         let date = app.entries_list.items[selected].date.clone();
+                                        
+                                        crossterm::terminal::disable_raw_mode()?;
+                                        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen, crossterm::event::DisableMouseCapture)?;
+                                        terminal.show_cursor()?;
+
                                         open_entry(&date)?;
+
+                                        crossterm::terminal::enable_raw_mode()?;
+                                        crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen, crossterm::event::EnableMouseCapture)?;
+                                        terminal.clear()?;
                                         refresh_entries(app)?;
                                     }
                                 }
@@ -97,12 +113,6 @@ pub fn run_app<B: Backend>(
                                 } else {
                                     2
                                 };
-                            }
-                            _ => {}
-                        },
-                        InputMode::Editing => match key.code {
-                            KeyCode::Esc => {
-                                app.input_mode = InputMode::Normal;
                             }
                             _ => {}
                         },

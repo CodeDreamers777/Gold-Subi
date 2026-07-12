@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 use crate::ui::util::{
-    centered_rect, PRIMARY_COLOR, BORDER_COLOR, ACCENT_COLOR, HIGHLIGHT_COLOR, TEXT_COLOR,
+    PRIMARY_COLOR, BORDER_COLOR, ACCENT_COLOR, TEXT_COLOR,
 };
 
 pub fn render(f: &mut Frame, area: Rect) {

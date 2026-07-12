@@ -8,7 +8,7 @@ use ratatui::{
     Frame,
 };
 use crate::app::App;
-use crate::ui::util::{PRIMARY_COLOR, BORDER_COLOR, HIGHLIGHT_COLOR, TEXT_COLOR, SUBTLE_TEXT, themed_block};
+use crate::ui::util::{PRIMARY_COLOR, BORDER_COLOR, HIGHLIGHT_COLOR, TEXT_COLOR, SUBTLE_TEXT};
 
 pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
     let today = chrono::Local::now().format("%Y-%m-%d").to_string();
@@ -35,8 +35,18 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
             } else {
                 e.date.clone()
             };
+            let is_selected = app.entries_list.state.selected().map_or(false, |idx| {
+                if let Some(entry) = app.entries_list.items.get(idx) {
+                    entry.date == e.date
+                } else {
+                    false
+                }
+            });
+
+            let prefix = if is_selected { "▶ " } else { "• " };
             
             ListItem::new(Line::from(vec![
+                Span::styled(prefix, style.clone()),
                 Span::styled(date_display, style),
                 Span::styled(
                     format!(" ({} bytes)", e.size),
@@ -68,11 +78,53 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
     
     // Preview content
     let selected = app.entries_list.state.selected();
+    let mut word_count = 0;
+    let mut char_count = 0;
+    
     let content = match selected {
         Some(i) if !app.entries_list.items.is_empty() => {
             let entry = &app.entries_list.items[i];
             
-            Text::from(entry.content.clone())
+            // Calculate stats
+            char_count = entry.content.chars().count();
+            word_count = entry.content.split_whitespace().count();
+            
+            // Basic Markdown Syntax Highlighting
+            let mut lines = Vec::new();
+            for line in entry.content.lines() {
+                if line.starts_with("# ") {
+                    lines.push(Line::from(Span::styled(
+                        line.to_string(),
+                        Style::default().fg(PRIMARY_COLOR).add_modifier(Modifier::BOLD)
+                    )));
+                } else if line.starts_with("## ") {
+                    lines.push(Line::from(Span::styled(
+                        line.to_string(),
+                        Style::default().fg(HIGHLIGHT_COLOR).add_modifier(Modifier::BOLD)
+                    )));
+                } else if line.starts_with("### ") {
+                    lines.push(Line::from(Span::styled(
+                        line.to_string(),
+                        Style::default().fg(crate::ui::util::ACCENT_COLOR).add_modifier(Modifier::BOLD)
+                    )));
+                } else if line.starts_with("- ") || line.starts_with("* ") {
+                    lines.push(Line::from(Span::styled(
+                        line.to_string(),
+                        Style::default().fg(crate::ui::util::SECONDARY_TEXT)
+                    )));
+                } else if line.starts_with("> ") {
+                    lines.push(Line::from(Span::styled(
+                        line.to_string(),
+                        Style::default().fg(SUBTLE_TEXT).add_modifier(Modifier::ITALIC)
+                    )));
+                } else {
+                    lines.push(Line::from(Span::styled(
+                        line.to_string(),
+                        Style::default().fg(TEXT_COLOR)
+                    )));
+                }
+            }
+            Text::from(lines)
         }
         _ => Text::from(Span::styled(
             "Select an entry to view its content",
@@ -80,13 +132,19 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
         )),
     };
     
+    let preview_title = if word_count > 0 {
+        Line::from(vec![
+            Span::styled(" Preview ", Style::default().fg(PRIMARY_COLOR).add_modifier(Modifier::BOLD)),
+            Span::styled(format!("({} words, {} chars) ", word_count, char_count), Style::default().fg(SUBTLE_TEXT).add_modifier(Modifier::ITALIC)),
+        ])
+    } else {
+        Line::from(Span::styled(" Preview ", Style::default().fg(PRIMARY_COLOR).add_modifier(Modifier::BOLD)))
+    };
+    
     let preview = Paragraph::new(content)
         .block(
             Block::default()
-                .title(Span::styled(
-                    "Preview",
-                    Style::default().fg(PRIMARY_COLOR).add_modifier(Modifier::BOLD)
-                ))
+                .title(preview_title)
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(BORDER_COLOR))
