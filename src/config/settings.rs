@@ -8,6 +8,14 @@ pub fn get_journal_dir() -> PathBuf {
     dir
 }
 
+pub fn get_trades_dir() -> PathBuf {
+    let mut dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
+    dir.push("Documents");
+    dir.push("trades");
+    fs::create_dir_all(&dir).expect("Failed to create trades directory");
+    dir
+}
+
 pub fn get_config_path() -> PathBuf {
     let mut dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("."));
     dir.push(".termjournal");

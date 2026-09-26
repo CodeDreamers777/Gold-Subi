@@ -23,8 +23,11 @@ pub fn render(f: &mut Frame, app: &mut App, area: Rect) {
             Span::styled(&app.editor, Style::default()),
         ]),
         Line::from(""),
-        Line::from("Journal entries are stored in:"),
-        Line::from(format!("{}", get_journal_dir().display())),
+        Line::from("Personal entries are stored in:"),
+        Line::from(format!("{}", crate::config::settings::get_journal_dir().display())),
+        Line::from(""),
+        Line::from("Trade entries are stored in:"),
+        Line::from(format!("{}", crate::config::settings::get_trades_dir().display())),
     ]);
 
     let settings = Paragraph::new(settings_text)

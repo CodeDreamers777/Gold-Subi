@@ -1,7 +1,7 @@
 // src/ui/ui.rs
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
-    style::{Style, Modifier},
+    style::{Color, Style, Modifier},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Tabs},
     Frame,
@@ -18,6 +18,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),  // Top bar (Title + Tabs)
+            Constraint::Length(1),  // Live Ticker
             Constraint::Min(0),     // Main content
             Constraint::Length(1),  // Status bar
         ])
@@ -34,8 +35,8 @@ pub fn ui(f: &mut Frame, app: &mut App) {
 
     // App Title
     let title = Paragraph::new(Line::from(vec![
-        Span::styled(" 🦀 Rusty", Style::default().fg(crate::ui::util::ACCENT_COLOR).add_modifier(Modifier::BOLD)),
-        Span::styled("Notes ", Style::default().fg(PRIMARY_COLOR).add_modifier(Modifier::BOLD)),
+        Span::styled(" 📈 Forex", Style::default().fg(crate::ui::util::ACCENT_COLOR).add_modifier(Modifier::BOLD)),
+        Span::styled("Journal ", Style::default().fg(PRIMARY_COLOR).add_modifier(Modifier::BOLD)),
     ]))
     .block(
         Block::default()
@@ -46,7 +47,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     f.render_widget(title, header_chunks[0]);
 
     // Render tabs
-    let titles: Vec<Line> = ["Entries", "Calendar", "Settings"]
+    let titles: Vec<Line> = ["Personal", "Trades", "Stats", "Calendar", "Settings"]
         .iter()
         .map(|t| {
             let (first, rest) = t.split_at(1);
@@ -103,21 +104,45 @@ pub fn ui(f: &mut Frame, app: &mut App) {
     
     f.render_widget(clock, header_chunks[2]);
 
+    // Live Ticker
+    let ticker_str = if let Ok(lock) = app.ticker_data.lock() {
+        lock.clone()
+    } else {
+        "Error loading ticker".to_string()
+    };
+    let ticker = Paragraph::new(Line::from(vec![
+        Span::styled("LIVE MARKET: ", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
+        Span::styled(ticker_str, Style::default().fg(Color::Yellow)),
+    ]))
+    .style(Style::default().bg(BACKGROUND_COLOR))
+    .alignment(Alignment::Left);
+    f.render_widget(ticker, chunks[1]);
+
     match app.tab_index {
-        0 => entries_tab::render(f, app, chunks[1]),
-        1 => calendar_tab::render(f, app, chunks[1]),
-        2 => settings_tab::render(f, app, chunks[1]),
+        0 => entries_tab::render(f, app, chunks[2]),
+        1 => crate::ui::trades_tab::render(f, app, chunks[2]),
+        2 => crate::ui::stats_tab::render(f, app, chunks[2]),
+        3 => calendar_tab::render(f, app, chunks[2]),
+        4 => settings_tab::render(f, app, chunks[2]),
         _ => unreachable!(),
     }
 
     // Render status bar
+    let item_count = if app.tab_index == 0 {
+        app.entries_list.items.len()
+    } else if app.tab_index == 1 {
+        app.trades_list.items.len()
+    } else {
+        0
+    };
+
     let status = Line::from(vec![
         Span::raw(" "),
         if !app.status_message.is_empty() {
             Span::styled(&app.status_message, Style::default().fg(PRIMARY_COLOR))
         } else {
             Span::styled(
-                format!("Press 'h' for help | {} entries", app.entries_list.items.len()),
+                format!("Press 'h' for help | {} items", item_count),
                 Style::default().fg(SUBTLE_TEXT),
             )
         },
@@ -127,7 +152,7 @@ pub fn ui(f: &mut Frame, app: &mut App) {
         .style(Style::default().bg(BACKGROUND_COLOR))
         .alignment(Alignment::Left);
 
-    f.render_widget(status_bar, chunks[2]);
+    f.render_widget(status_bar, chunks[3]);
 
     // Render help overlay if requested
     if app.show_help {

@@ -4,12 +4,32 @@ use std::{error::Error, fs::{self, File}, io::{self, Write}, path::PathBuf, proc
 use chrono::Local;
 use colored::*;
 
-use crate::{app::App, config::settings::{get_editor, get_journal_dir}};
+use crate::{app::App, config::settings::{get_editor, get_journal_dir, get_trades_dir}};
 
 pub fn open_editor(path: &PathBuf) -> Result<(), Box<dyn Error>> {
     if !path.exists() {
         let mut file = File::create(path)?;
         let template = format!("# Journal Entry: {}\n\n", Local::now().format("%Y-%m-%d"));
+        file.write_all(template.as_bytes())?;
+    }
+    
+    let editor = get_editor()?;
+    Command::new(editor)
+        .arg(path)
+        .status()
+        .expect("Failed to open editor");
+    
+    Ok(())
+}
+
+pub fn open_trade_editor(path: &PathBuf) -> Result<(), Box<dyn Error>> {
+    if !path.exists() {
+        let mut file = File::create(path)?;
+        let template = format!(
+            "id: {}\ndate: '{}'\npair: EURUSD\ndirection: Long\nentry_price: 0.0\nstop_loss: 0.0\ntake_profit: 0.0\nexit_price: \nlot_size: 1.0\npnl: \nsetup: Breakout\nsession: London\nnotes: |\n  Enter notes here...\n",
+            uuid::Uuid::new_v4(),
+            Local::now().format("%Y-%m-%d %H:%M:%S")
+        );
         file.write_all(template.as_bytes())?;
     }
     
@@ -30,9 +50,23 @@ pub fn create_new_entry(app: &mut App) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+pub fn create_new_trade(app: &mut App) -> Result<(), Box<dyn Error>> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let path = get_trades_dir().join(format!("{id}.yaml"));
+    open_trade_editor(&path)?;
+    app.set_status("Created new trade entry");
+    Ok(())
+}
+
 pub fn open_entry(date: &str) -> Result<(), Box<dyn Error>> {
     let path = get_journal_dir().join(format!("{date}.md"));
     open_editor(&path)?;
+    Ok(())
+}
+
+pub fn open_trade(id: &str) -> Result<(), Box<dyn Error>> {
+    let path = get_trades_dir().join(format!("{id}.yaml"));
+    open_trade_editor(&path)?;
     Ok(())
 }
 
@@ -41,6 +75,15 @@ pub fn delete_entry(date: String, app: &mut App) -> Result<(), Box<dyn Error>> {
     if path.exists() {
         fs::remove_file(&path)?;
         app.set_status(&format!("Deleted entry for {}", date));
+    }
+    Ok(())
+}
+
+pub fn delete_trade(id: String, app: &mut App) -> Result<(), Box<dyn Error>> {
+    let path = get_trades_dir().join(format!("{id}.yaml"));
+    if path.exists() {
+        fs::remove_file(&path)?;
+        app.set_status("Deleted trade entry");
     }
     Ok(())
 }
